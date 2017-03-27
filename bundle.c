@@ -244,6 +244,7 @@ static int write_pack_data(int bundle_fd, struct rev_info *revs)
 
 	argv_array_pushl(&pack_objects.args,
 			 "pack-objects", "--all-progress-implied",
+                         "--compression=0",
 			 "--stdout", "--thin", "--delta-base-offset",
 			 NULL);
 	pack_objects.in = -1;
