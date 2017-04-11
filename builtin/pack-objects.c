@@ -121,13 +121,13 @@ static void *get_delta(struct object_entry *entry)
 	return delta_buf;
 }
 
-static unsigned long do_compress(void **pptr, unsigned long size)
+static unsigned long do_compress(void **pptr, unsigned long size, int compression_level)
 {
 	git_zstream stream;
 	void *in, *out;
 	unsigned long maxsize;
 
-	git_deflate_init(&stream, pack_compression_level);
+	git_deflate_init(&stream, compression_level);
 	maxsize = git_deflate_bound(&stream, size);
 
 	in = *pptr;
@@ -146,6 +146,11 @@ static unsigned long do_compress(void **pptr, unsigned long size)
 	return stream.total_out;
 }
 
+static int get_pack_compression_level(const unsigned char *sha1) {
+	/* TODO: Check if sha1 is the uncompressed file from the command line arguments! */
+	return pack_compression_level;
+}
+
 static unsigned long write_large_blob_data(struct git_istream *st, struct sha1file *f,
 					   const unsigned char *sha1)
 {
@@ -154,7 +159,7 @@ static unsigned long write_large_blob_data(struct git_istream *st, struct sha1fi
 	unsigned char obuf[1024 * 16];
 	unsigned long olen = 0;
 
-	git_deflate_init(&stream, pack_compression_level);
+	git_deflate_init(&stream, get_pack_compression_level(sha1));
 
 	for (;;) {
 		ssize_t readlen;
@@ -280,7 +285,7 @@ static unsigned long write_no_reuse_object(struct sha1file *f, struct object_ent
 	else if (entry->z_delta_size)
 		datalen = entry->z_delta_size;
 	else
-		datalen = do_compress(&buf, size);
+		datalen = do_compress(&buf, size, get_pack_compression_level(entry->idx.sha1));
 
 	/*
 	 * The object header is a byte of 'type' followed by zero or
@@ -2052,7 +2057,8 @@ static void find_deltas(struct object_entry **list, unsigned *list_size,
 		 */
 		if (entry->delta_data && !pack_to_stdout) {
 			entry->z_delta_size = do_compress(&entry->delta_data,
-							  entry->delta_size);
+							  entry->delta_size,
+							  get_pack_compression_level(entry->idx.sha1));
 			cache_lock();
 			delta_cache_size -= entry->delta_size;
 			delta_cache_size += entry->z_delta_size;
@@ -2854,6 +2860,7 @@ int cmd_pack_objects(int argc, const char **argv, const char *prefix)
 	struct argv_array rp = ARGV_ARRAY_INIT;
 	int rev_list_unpacked = 0, rev_list_all = 0, rev_list_reflog = 0;
 	int rev_list_index = 0;
+        const char* no_compress_hash;
 	struct option pack_objects_options[] = {
 		OPT_SET_INT('q', "quiet", &progress,
 			    N_("do not show progress meter"), 0),
@@ -2922,6 +2929,8 @@ int cmd_pack_objects(int argc, const char **argv, const char *prefix)
 			 N_("ignore packs that have companion .keep file")),
 		OPT_INTEGER(0, "compression", &pack_compression_level,
 			    N_("pack compression level")),
+                OPT_STRING(0, "do-not-compress", &no_compress_hash, N_("SHA1"),
+			   N_("do not compress the given object in the pack")),
 		OPT_SET_INT(0, "keep-true-parents", &grafts_replace_parents,
 			    N_("do not hide commits by grafts"), 0),
 		OPT_BOOL(0, "use-bitmap-index", &use_bitmap_index,
