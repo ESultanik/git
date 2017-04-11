@@ -154,7 +154,7 @@ static int get_pack_compression_level(const unsigned char *sha1) {
 	} else {
 		fprintf(stderr, "Packing object ");
 		for(size_t i=0; i<20; ++i) {
-			fprintf(stderr, "%x", no_compress_sha1[i]);
+			fprintf(stderr, "%02x", no_compress_sha1[i]);
 		}
 		fprintf(stderr, " uncompressed...\n");
 		return 0;
