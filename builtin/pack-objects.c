@@ -90,6 +90,8 @@ static struct commit **indexed_commits;
 static unsigned int indexed_commits_nr;
 static unsigned int indexed_commits_alloc;
 
+static unsigned char no_compress_sha1[20] = "\0";
+
 static void index_commit_for_bitmap(struct commit *commit)
 {
 	if (indexed_commits_nr >= indexed_commits_alloc) {
@@ -147,8 +149,16 @@ static unsigned long do_compress(void **pptr, unsigned long size, int compressio
 }
 
 static int get_pack_compression_level(const unsigned char *sha1) {
-	/* TODO: Check if sha1 is the uncompressed file from the command line arguments! */
-	return pack_compression_level;
+	if(memcmp(sha1, no_compress_sha1, 20)) {
+		return pack_compression_level;
+	} else {
+		fprintf(stderr, "Packing object ");
+		for(size_t i=0; i<20; ++i) {
+			fprintf(stderr, "%x", no_compress_sha1[i]);
+		}
+		fprintf(stderr, " uncompressed...\n");
+		return 0;
+	}
 }
 
 static unsigned long write_large_blob_data(struct git_istream *st, struct sha1file *f,
@@ -2860,7 +2870,7 @@ int cmd_pack_objects(int argc, const char **argv, const char *prefix)
 	struct argv_array rp = ARGV_ARRAY_INIT;
 	int rev_list_unpacked = 0, rev_list_all = 0, rev_list_reflog = 0;
 	int rev_list_index = 0;
-        const char* no_compress_hash;
+	const char* no_compress_hash = NULL;
 	struct option pack_objects_options[] = {
 		OPT_SET_INT('q', "quiet", &progress,
 			    N_("do not show progress meter"), 0),
@@ -3012,6 +3022,29 @@ int cmd_pack_objects(int argc, const char **argv, const char *prefix)
 		die("--keep-unreachable and --unpack-unreachable are incompatible.");
 	if (!rev_list_all || !rev_list_reflog || !rev_list_index)
 		unpack_unreachable_expiration = 0;
+
+	if(no_compress_hash) {
+		unsigned char last_value = 0;
+		for(size_t i=0,l=strlen(no_compress_hash); i < l; ++i) {
+			unsigned char c = no_compress_hash[i];
+			unsigned char value;
+			if(c >= '0' && c <= '9') {
+				value = c - '0';
+			} else if(c >= 'a' && c <= 'f') {
+				value = c - 'a' + 10;
+			} else if(c >= 'A' && c <= 'F') {
+				value = c - 'A' + 10;
+			} else {
+				die("unable to parse SHA1 from --do-not-compress argument: \"%s\"", no_compress_hash);
+			}
+			if(i % 2) {
+				last_value = (last_value << 4) + value;
+				no_compress_sha1[i / 2] = last_value;
+			} else {
+				last_value = value;
+			}
+		}
+	}
 
 	/*
 	 * "soft" reasons not to use bitmaps - for on-disk repack by default we want
