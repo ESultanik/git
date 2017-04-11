@@ -235,18 +235,24 @@ out:
 	return result;
 }
 
-
 /* Write the pack data to bundle_fd, then close it if it is > 1. */
-static int write_pack_data(int bundle_fd, struct rev_info *revs)
+static int write_pack_data(int bundle_fd, struct rev_info *revs, const char* do_not_compress_sha1)
 {
 	struct child_process pack_objects = CHILD_PROCESS_INIT;
 	int i;
 
-	argv_array_pushl(&pack_objects.args,
-			 "pack-objects", "--all-progress-implied",
-                         //"--compression=0",
-			 "--stdout", "--thin", "--delta-base-offset",
-			 NULL);
+	if(do_not_compress_sha1) {
+		argv_array_pushl(&pack_objects.args,
+				 "pack-objects", "--all-progress-implied",
+                	         "--do-not-compress", do_not_compress_sha1,
+				 "--stdout", "--thin", "--delta-base-offset",
+				 NULL);
+	} else {
+		argv_array_pushl(&pack_objects.args,
+				 "pack-objects", "--all-progress-implied",
+				 "--stdout", "--thin", "--delta-base-offset",
+				 NULL);
+	}
 	pack_objects.in = -1;
 	pack_objects.out = bundle_fd;
 	pack_objects.git_cmd = 1;
@@ -408,7 +414,20 @@ int create_bundle(struct bundle_header *header, const char *path,
 	int bundle_to_stdout;
 	int ref_count = 0;
 	struct rev_info revs;
+        const char* do_not_compress;
 
+        /* see if the optional --do-not-compress argument was provided */
+	if(argc > 0 && !strcmp(argv[1], "--do-not-compress")) {
+		if(argc < 2) {
+			die_errno("expected a SHA1 argument after --do-not-compress");
+		}
+		do_not_compress = argv[2];
+		argc -= 2;
+		argv += 2;
+	} else {
+		do_not_compress = NULL;
+	}
+        
 	bundle_to_stdout = !strcmp(path, "-");
 	if (bundle_to_stdout)
 		bundle_fd = 1;
@@ -454,7 +473,7 @@ int create_bundle(struct bundle_header *header, const char *path,
 		goto err;
 
 	/* write pack */
-	if (write_pack_data(bundle_fd, &revs)) {
+	if (write_pack_data(bundle_fd, &revs, do_not_compress)) {
 		bundle_fd = -1; /* already closed by the above call */
 		goto err;
 	}
