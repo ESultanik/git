@@ -148,7 +148,8 @@ static unsigned long do_compress(void **pptr, unsigned long size, int compressio
 	return stream.total_out;
 }
 
-static int get_pack_compression_level(const unsigned char *sha1) {
+static int get_pack_compression_level(const unsigned char *sha1)
+{
 	if(memcmp(sha1, no_compress_sha1, 20)) {
 		return pack_compression_level;
 	} else {
@@ -795,6 +796,16 @@ static void write_pack_file(void)
 	ALLOC_ARRAY(written_list, to_pack.nr_objects);
 	write_order = compute_write_order();
 
+        for(; i < to_pack.nr_objects; ++i) {
+            if(!memcmp(write_order[i]->idx.sha1, no_compress_sha1, 20)) {
+                fprintf(stderr, "Moving the uncompressed object to the beginning of the pack file...");
+                struct object_entry *no_compress_entry = write_order[i];
+                memmove(&write_order[1], &write_order[0], (to_pack.nr_objects-1)*sizeof(struct object_entry*));
+                write_order[0] = no_compress_entry;;
+            }
+        }
+        i = 0;
+                  
 	do {
 		unsigned char sha1[20];
 		char *pack_tmp_name = NULL;
