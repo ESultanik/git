@@ -152,11 +152,7 @@ static int get_pack_compression_level(const unsigned char *sha1) {
 	if(memcmp(sha1, no_compress_sha1, 20)) {
 		return pack_compression_level;
 	} else {
-		fprintf(stderr, "Packing object ");
-		for(size_t i=0; i<20; ++i) {
-			fprintf(stderr, "%02x", no_compress_sha1[i]);
-		}
-		fprintf(stderr, " uncompressed...\n");
+		fprintf(stderr, "Packing object %s uncompressed...\n", sha1_to_hex(no_compress_sha1));
 		return 0;
 	}
 }
