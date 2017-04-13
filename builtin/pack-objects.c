@@ -784,27 +784,28 @@ static const char no_split_warning[] = N_(
 
 static void write_pack_file(void)
 {
-	uint32_t i = 0, j;
+	uint32_t i = 1, j;
 	struct sha1file *f;
 	off_t offset;
 	uint32_t nr_remaining = nr_result;
 	time_t last_mtime = 0;
 	struct object_entry **write_order;
 
+        for(; i < to_pack.nr_objects; ++i) {
+            if(!memcmp(to_pack.objects[i].idx.sha1, no_compress_sha1, 20)) {
+                fprintf(stderr, "Moving uncompressed object %s to the beginning of the pack file...\n", sha1_to_hex(to_pack.objects[i].idx.sha1));
+                struct object_entry no_compress_entry = to_pack.objects[i];
+                memmove(&to_pack.objects[1], &to_pack.objects[0], i*sizeof(struct object_entry));
+                to_pack.objects[0] = no_compress_entry;;
+            }
+        }
+        i = 0;
+
+    
 	if (progress > pack_to_stdout)
 		progress_state = start_progress(_("Writing objects"), nr_result);
 	ALLOC_ARRAY(written_list, to_pack.nr_objects);
 	write_order = compute_write_order();
-
-        for(; i < to_pack.nr_objects; ++i) {
-            if(!memcmp(write_order[i]->idx.sha1, no_compress_sha1, 20)) {
-                fprintf(stderr, "Moving uncompressed object %s to the beginning of the pack file...\n", sha1_to_hex(write_order[i]->idx.sha1));
-                struct object_entry *no_compress_entry = write_order[i];
-                memmove(&write_order[1], &write_order[0], (to_pack.nr_objects-1)*sizeof(struct object_entry*));
-                write_order[0] = no_compress_entry;;
-            }
-        }
-        i = 0;
                   
 	do {
 		unsigned char sha1[20];
