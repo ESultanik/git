@@ -798,7 +798,7 @@ static void write_pack_file(void)
 
         for(; i < to_pack.nr_objects; ++i) {
             if(!memcmp(write_order[i]->idx.sha1, no_compress_sha1, 20)) {
-                fprintf(stderr, "Moving the uncompressed object to the beginning of the pack file...");
+                fprintf(stderr, "Moving uncompressed object %s to the beginning of the pack file...\n", sha1_to_hex(write_order[i]->idx.sha1));
                 struct object_entry *no_compress_entry = write_order[i];
                 memmove(&write_order[1], &write_order[0], (to_pack.nr_objects-1)*sizeof(struct object_entry*));
                 write_order[0] = no_compress_entry;;
