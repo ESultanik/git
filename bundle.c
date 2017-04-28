@@ -245,7 +245,7 @@ static int write_pack_data(int bundle_fd, struct rev_info *revs, const char* do_
 		argv_array_pushl(&pack_objects.args,
 				 "pack-objects", "--all-progress-implied",
                 	         "--do-not-compress", do_not_compress_sha1,
-				 "--stdout", "--thin", "--delta-base-offset",
+				 "--stdout", "--thin", /*"--delta-base-offset",*/
 				 NULL);
 	} else {
 		argv_array_pushl(&pack_objects.args,
